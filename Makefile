@@ -1,7 +1,7 @@
 CC = clang
 CFLAGS = -std=c99 -Wall -Wextra
 EXEC_NAME = gb
-SOURCES = src/main.c src/emulator.c src/cpu.c src/memory.c
+SOURCES = src/main.c src/emulator.c src/cpu.c src/bus.c src/cartridge.c
 INCLUDE = -Iinclude
 
 all:

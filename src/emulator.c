@@ -1,5 +1,6 @@
 #include "emulator.h"
-
+#include "bus.h"
+#include "cartridge.h"
 #include "common.h"
 
 #define USAGE "rom_path"
@@ -12,6 +13,12 @@ int emulator_run(int argc, char *argv[]) {
         printf("Usage: %s %s\n", argv[0], USAGE);
         return 1;
     }
+
+    if (!cartridge_load(argv[1])) {
+        printf("Failed to load ROM\nExiting\n");
+        return 2;
+    }
+    cartridge_print_info();
 
     return 0;
 }

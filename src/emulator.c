@@ -1,6 +1,7 @@
 #include "emulator.h"
 #include "bus.h"
 #include "cartridge.h"
+#include "cpu.h"
 #include "common.h"
 
 #define USAGE "rom_path"
@@ -19,6 +20,13 @@ int emulator_run(int argc, char *argv[]) {
         return 2;
     }
     cartridge_print_info();
+
+    cpu_init();
+    uint64_t cycle_count = 0;
+    for(;;) {
+        printf("%llu : ", ++cycle_count);
+        cpu_step();
+    }
 
     return 0;
 }

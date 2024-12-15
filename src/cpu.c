@@ -1,9 +1,16 @@
 #include "cpu.h"
 #include "bus.h"
 
+// Pull out 3 bits of an op code following the format: XXYYYZZZ
 #define YYY(op) ((op >> 3) & 0x07)
 #define ZZZ(op) (op & 0x07)
 
+// NOTE: the below must not be used for registers A and F as they are
+//       stored separately from the `registers` array
+#define REG_YYY(op) ctx.registers[YYY(op)]
+#define REG_ZZZ(op) ctx.registers[ZZZ(op)]
+
+// Name registers uniformly across array and individual flags
 #define REG_B ctx.registers[0]
 #define REG_C ctx.registers[1]
 #define REG_D ctx.registers[2]
@@ -13,11 +20,13 @@
 #define REG_A ctx.register_a
 #define REG_F ctx.register_f
 
+// Create uniform names for each of the flags
 #define REG_F_Z ctx.register_f.zero
 #define REG_F_N ctx.register_f.subtraction
 #define REG_F_H ctx.register_f.half_carry
 #define REG_F_C ctx.register_f.carry
 
+// NOTE: `bit` should not be an operation. Only use with immediates or variables
 #define REG_F_SET_Z(bit) ctx.register_f.zero        = bit
 #define REG_F_SET_N(bit) ctx.register_f.subtraction = bit
 #define REG_F_SET_H(bit) ctx.register_f.half_carry  = bit
@@ -28,13 +37,11 @@
 #define REG_HL ((REG_H << 8) | REG_L)
 #define REG_AF ((REG_A << 8) | REG_F)
 
+// NOTE: `value` should not be an operation. Only use with immediates or variables
 #define REG_BC_SET(value) REG_B = ((value) >> 8) & 0xFF; REG_C = value & 0xFF
 #define REG_DE_SET(value) REG_D = ((value) >> 8) & 0xFF; REG_E = value & 0xFF
 #define REG_HL_SET(value) REG_H = ((value) >> 8) & 0xFF; REG_L = value & 0xFF
 #define REG_AF_SET(value) REG_A = ((value) >> 8) & 0xFF; REG_F = value & 0xFF
-
-#define REG_YYY(op) ctx.registers[YYY(op)]
-#define REG_ZZZ(op) ctx.registers[ZZZ(op)]
 
 static cpu_context ctx;
 
@@ -44,7 +51,7 @@ void print_state(void) {
         | ctx.register_f.subtraction << 6
         | ctx.register_f.half_carry << 5
         | ctx.register_f.carry << 4;
-    printf("A: %02X, F: %02X, B: %02X, C: %02X, D: %02X, E: %02X, H: %02X, L: %02X, SP: %04X, PC: %04X (%02X %02X %02X %02X)\n",
+    printf("A: %02X F: %02X B: %02X C: %02X D: %02X E: %02X H: %02X L: %02X SP: %04X PC: 00:%04X (%02X %02X %02X %02X)\n",
         REG_A, reg_f, REG_B, REG_C, REG_D, REG_E, REG_H, REG_L, ctx.sp, ctx.pc,
         bus_read(ctx.pc), bus_read(ctx.pc + 1), bus_read(ctx.pc + 2), bus_read(ctx.pc + 3));
 }
@@ -121,13 +128,13 @@ void execute(uint8_t op) {
             REG_A = bus_read(REG_BC);
             break;
 
-        // Decrement BC
+        // DEC BC
         case 0x0B:
             // 8 t cycles
             REG_BC_SET(REG_BC - 1);
             break;
    
-        // Increment register 8 (minus A)
+        // INC r8 - minus A
         case 0x04: case 0x0C:
         case 0x14: case 0x1C:
         case 0x24: case 0x2C:
@@ -140,7 +147,7 @@ void execute(uint8_t op) {
             REG_F_SET_C(intermediate > 0xFF);
             break;
         
-        // Decrement register 8 (minus A)
+        // DEC r8 - minus (HL) and A
         case 0x05: case 0x0D:
         case 0x15: case 0x1D:
         case 0x25: case 0x2D:
@@ -152,10 +159,10 @@ void execute(uint8_t op) {
             REG_F_SET_H(REG_YYY(op) > 0x0F);
             break;
 
-        // Load immediate to register (8)
+        // LD r8, u8 - Load immediate to register (8) minus A
         case 0x06: case 0x0E:
         case 0x16: case 0x1E:
-        case 0x26: case 0x2E:
+        case 0x26:
             // 8 t cycles
             REG_YYY(op) = fetch();
             break;
@@ -184,7 +191,7 @@ void execute(uint8_t op) {
             REG_DE_SET(intermediate);
             break;
 
-        // Load value at at addr DE into register A
+        // LD (DE), A
         case 0x12:
             // 8 t cycles
             bus_write(REG_DE, REG_A);
@@ -316,6 +323,12 @@ void execute(uint8_t op) {
             // 8 t cycles
             intermediate = REG_HL - 1;
             REG_HL_SET(intermediate);
+            break;
+
+        // LD A, u8
+        case 0x2E:
+            // 8 t cycles
+            REG_A = fetch();
             break;
 
         // Complement register A (CPL)
@@ -450,13 +463,13 @@ void execute(uint8_t op) {
             REG_F_SET_C(REG_F_C ^ 0x01);
             break;
 
-        // LD r8, r8 - Load register to register
-        case 0x40 ... 0x45: case 0x47:
-        case 0x48 ... 0x4D: case 0x4F:
-        case 0x50 ... 0x55: case 0x57:
-        case 0x58 ... 0x5D: case 0x5F:
-        case 0x60 ... 0x65: case 0x67:
-        case 0x68 ... 0x6D: case 0x6F:
+        // LD r8, r8 (minus (HL) and A) - Load register to register
+        case 0x40 ... 0x45:
+        case 0x48 ... 0x4D:
+        case 0x50 ... 0x55:
+        case 0x58 ... 0x5D:
+        case 0x60 ... 0x65:
+        case 0x68 ... 0x6D:
             // 4 t cycles
             REG_YYY(op) = REG_ZZZ(op);
             break;
@@ -470,20 +483,39 @@ void execute(uint8_t op) {
             REG_YYY(op) = bus_read(REG_HL);
             break;
 
-        // Load register to HL addr
-        case 0x70 ... 0x75: case 0x77:
+        // LD r8, A
+        case 0x47: case 0x4F:
+        case 0x57: case 0x5F:
+        case 0x67: case 0x6F:
+            // 4 t cycles
+            REG_YYY(op) = REG_A;
+            break;
+
+        // LD (HL), r8 - Minus register A
+        case 0x70 ... 0x75:
             // 8 t cycles
             bus_write(REG_HL, REG_ZZZ(op));
             break;
+        
+        // LD (HL), A
+        case 0x77:
+            bus_write(REG_HL, REG_A);
+            break;
 
-        // Load register to register A
-        case 0x78 ... 0x7D: case 0x7F:
+        // LD A, r8 - minus A, A
+        case 0x78 ... 0x7D:
             // 4 t cycles
             REG_A = REG_ZZZ(op);
             break;
 
-        // Add register to register A
-        case 0x80 ... 0x85: case 0x87:
+        // LD A, A - Essentially a NOP
+        case 0x7F:
+            // 4 t cycles
+            // do nothing
+            break;
+
+        // ADD A, r8 - Minus A
+        case 0x80 ... 0x85:
             // 4 t cycles
             intermediate = REG_A + REG_ZZZ(op);
             REG_F_SET_Z((intermediate & 0xFF) == 0);
@@ -495,6 +527,7 @@ void execute(uint8_t op) {
 
         // ADD A, (HL)
         case 0x86:
+            // 8 t cycles
             intermediate = REG_A + bus_read(REG_HL);
             REG_F_SET_Z((intermediate & 0xFF) == 0);
             REG_F_SET_N(0);
@@ -503,8 +536,19 @@ void execute(uint8_t op) {
             REG_A = intermediate & 0xFF;
             break;
 
-        // ADC A, r8 - Add carry + register to register A
-        case 0x88 ... 0x8D: case 0x8F:
+        // ADD A, A
+        case 0x87:
+            // 4 t cycles
+            intermediate = REG_A + REG_A;
+            REG_F_SET_Z((intermediate & 0xFF) == 0);
+            REG_F_SET_N(0);
+            REG_F_SET_H(intermediate > 0x0F);
+            REG_F_SET_C(intermediate > 0xFF);
+            REG_A = intermediate & 0xFF;
+            break;
+
+        // ADC A, r8 - minus A
+        case 0x88 ... 0x8D:
             // 4 t cycles
             intermediate = REG_A + REG_F_C + REG_ZZZ(op);
             REG_F_SET_Z((intermediate & 0xFF) == 0);
@@ -524,8 +568,17 @@ void execute(uint8_t op) {
             REG_A = intermediate & 0xFF;
             break;
 
-        // Subtract register from register A
-        case 0x90 ... 0x95: case 0x97:
+        case 0x8F:
+            intermediate = REG_A + REG_A + REG_F_C;
+            REG_F_SET_Z((intermediate & 0xFF) == 0);
+            REG_F_SET_N(0);
+            REG_F_SET_H(intermediate > 0x0F);
+            REG_F_SET_C(intermediate > 0xFF);
+            REG_A = intermediate & 0xFF;
+            break;
+
+        // SUB A, r8 - Subtract register from register A
+        case 0x90 ... 0x95:
             // 4 t cycles
             intermediate = REG_ZZZ(op);
             REG_F_SET_C(intermediate > REG_A);
@@ -545,8 +598,17 @@ void execute(uint8_t op) {
             REG_F_SET_N(1);
             break;
 
+        // SUB A, A
+        case 0x97:
+            REG_A = 0;
+            REG_F_SET_Z(0);
+            REG_F_SET_N(1);
+            REG_F_SET_H(0);
+            REG_F_SET_C(0);
+            break;
+
         // SBC A, r8 - Subtract carry
-        case 0x98 ... 0x9D: case 0x9F:
+        case 0x98 ... 0x9D:
             intermediate = REG_A - REG_F_C - REG_ZZZ(op);
             REG_F_SET_H(intermediate > 0x0F);
             REG_F_SET_C(REG_ZZZ(op) + REG_F_C > REG_A);
@@ -564,6 +626,15 @@ void execute(uint8_t op) {
             REG_A = intermediate & 0xFF;
             REG_F_SET_Z(REG_A == 0);
             REG_F_SET_N(1);
+            break;
+
+        // SBC A, A
+        case 0x9F:
+            intermediate = -REG_F_C;
+            REG_F_SET_Z(REG_F_C == 0);
+            REG_F_SET_N(1);
+            REG_F_SET_H(REG_F_C == 1);
+            // No change to carry flag needed
             break;
 
         // AND A, r8
@@ -596,7 +667,7 @@ void execute(uint8_t op) {
             break;
 
         // XOR A, r8
-        case 0xA8 ... 0xAD: case 0xAF:
+        case 0xA8 ... 0xAD:
             // 4 t cycles
             intermediate = REG_A ^ REG_ZZZ(op);
             REG_F_SET_Z(intermediate == 0);
@@ -611,6 +682,15 @@ void execute(uint8_t op) {
             intermediate = REG_A ^ bus_read(REG_HL);
             REG_A = intermediate & 0xFF;
             REG_F_SET_Z(intermediate == 0);
+            REG_F_SET_N(0);
+            REG_F_SET_H(0);
+            REG_F_SET_C(0);
+            break;
+
+        // XOR A, A
+        case 0xAF:
+            REG_A = 0;
+            REG_F_SET_Z(1);
             REG_F_SET_N(0);
             REG_F_SET_H(0);
             REG_F_SET_C(0);
@@ -779,8 +859,8 @@ void execute(uint8_t op) {
             // 8 t cycles
             switch (op) {
                 
-                // RLC r8
-                case 0x00 ... 0x05: case 0x07:
+                // RLC r8 - minus A
+                case 0x00 ... 0x05:
                     REG_F_SET_C(REG_ZZZ(op) >> 7);
                     intermediate = (REG_ZZZ(op) << 1) | REG_F_C;
                     REG_ZZZ(op) = intermediate;
@@ -801,8 +881,18 @@ void execute(uint8_t op) {
                     REG_F_SET_H(0);
                     break;
 
-                // RRC r8
-                case 0x08 ... 0x0D: case 0x0F:
+                // RLC A
+                case 0x07:
+                    REG_F_SET_C(REG_A >> 7);
+                    intermediate = (REG_A << 1) | REG_F_C;
+                    REG_A = intermediate;
+                    REG_F_SET_Z(intermediate == 0);
+                    REG_F_SET_N(0);
+                    REG_F_SET_H(0);
+                    break;
+
+                // RRC r8 - minus A
+                case 0x08 ... 0x0D:
                     REG_F_SET_C(REG_ZZZ(op) & 0x01);
                     intermediate = (REG_F_C << 7) | (REG_ZZZ(op) >> 1);
                     REG_ZZZ(op) = intermediate;
@@ -822,9 +912,19 @@ void execute(uint8_t op) {
                     REG_F_SET_N(0);
                     REG_F_SET_H(0);
                     break;
+
+                // RRC A
+                case 0x0F:
+                    REG_F_SET_C(REG_A & 0x01);
+                    intermediate = (REG_F_C << 7) | (REG_A >> 1);
+                    REG_A = intermediate;
+                    REG_F_SET_Z(intermediate == 0);
+                    REG_F_SET_N(0);
+                    REG_F_SET_H(0);
+                    break;
                 
-                // RL r8
-                case 0x10 ... 0x15: case 0x17:
+                // RL r8 - minus A
+                case 0x10 ... 0x15:
                     intermediate = REG_ZZZ(op) >> 7;
                     REG_ZZZ(op) = (REG_ZZZ(op) << 1) | REG_F_C;
                     REG_F_SET_Z(REG_ZZZ(op) == 0);
@@ -844,8 +944,18 @@ void execute(uint8_t op) {
                     REG_F_SET_H(0);
                     break;
 
-                // RR r8
-                case 0x18 ... 0x1D: case 0x1F:
+                // RL A
+                case 0x17:
+                    intermediate = REG_A >> 7;
+                    REG_A = (REG_A << 1) | REG_F_C;
+                    REG_F_SET_Z(REG_A == 0);
+                    REG_F_SET_N(0);
+                    REG_F_SET_H(0);
+                    REG_F_SET_C(intermediate);
+                    break;
+
+                // RR r8 - minus A
+                case 0x18 ... 0x1D:
                     intermediate = REG_ZZZ(op) & 0x01;
                     REG_ZZZ(op) = (REG_F_C << 7) | (REG_ZZZ(op) >> 1);
                     REG_F_SET_Z(REG_ZZZ(op) == 0);
@@ -864,12 +974,22 @@ void execute(uint8_t op) {
                     REG_F_SET_N(0);
                     REG_F_SET_H(0);
                     break;
+
+                // RR A
+                case 0x1F:
+                    intermediate = REG_A & 0x01;
+                    REG_A = (REG_F_C << 7) | (REG_A >> 1);
+                    REG_F_SET_Z(REG_A == 0);
+                    REG_F_SET_N(0);
+                    REG_F_SET_H(0);
+                    REG_F_SET_C(intermediate);
+                    break;
                 
-                // SLA
-                case 0x20 ... 0x25: case 0x27:
-                    intermediate = REG_YYY(op);
+                // SLA r8 - minus A
+                case 0x20 ... 0x25:
+                    intermediate = REG_ZZZ(op);
                     REG_F_SET_C(intermediate >> 7);
-                    REG_YYY(op) = intermediate << 1;
+                    REG_ZZZ(op) = intermediate << 1;
                     REG_F_SET_Z(REG_ZZZ(op) == 0);
                     REG_F_SET_N(0);
                     REG_F_SET_H(0);
@@ -887,11 +1007,21 @@ void execute(uint8_t op) {
                     REG_F_SET_H(0);
                     break;
 
-                // SRA r8
-                case 0x28 ... 0x2D: case 0x2F:
-                    intermediate = REG_YYY(op);
+                // SLA A
+                case 0x27:
+                    intermediate = REG_A;
+                    REG_F_SET_C(intermediate >> 7);
+                    REG_A = intermediate << 1;
+                    REG_F_SET_Z(REG_A == 0);
+                    REG_F_SET_N(0);
+                    REG_F_SET_H(0);
+                    break;
+
+                // SRA r8 - minus A
+                case 0x28 ... 0x2D:
+                    intermediate = REG_ZZZ(op);
                     REG_F_SET_C(intermediate & 0x01);
-                    REG_YYY(op) = (intermediate & 0x80) | intermediate >> 1;
+                    REG_ZZZ(op) = (intermediate & 0x80) | intermediate >> 1;
                     REG_F_SET_Z(REG_ZZZ(op) == 0);
                     REG_F_SET_N(0);
                     REG_F_SET_H(0);
@@ -908,12 +1038,22 @@ void execute(uint8_t op) {
                     REG_F_SET_N(0);
                     REG_F_SET_H(0);
                     break;
+
+                // SRA A
+                case 0x2F:
+                    intermediate = REG_A;
+                    REG_F_SET_C(intermediate & 0x01);
+                    REG_A = (intermediate & 0x80) | intermediate >> 1;
+                    REG_F_SET_Z(REG_A == 0);
+                    REG_F_SET_N(0);
+                    REG_F_SET_H(0);
+                    break;
                 
-                // SWAP
-                case 0x30 ... 0x35: case 0x37:
-                    intermediate = REG_YYY(op);
+                // SWAP r8 - Minus A
+                case 0x30 ... 0x35:
+                    intermediate = REG_ZZZ(op);
                     intermediate = (intermediate & 0xF0) >> 4 | (intermediate & 0x0F) << 4;
-                    REG_YYY(op) = intermediate;
+                    REG_ZZZ(op) = intermediate;
                     REG_F_SET_Z(intermediate == 0);
                     REG_F_SET_N(0);
                     REG_F_SET_H(0);
@@ -932,11 +1072,22 @@ void execute(uint8_t op) {
                     REG_F_SET_C(0);
                     break;
 
-                // SRL r8
-                case 0x38 ... 0x3D: case 0x3F:
-                    intermediate = REG_YYY(op);
+                // SWAP A
+                case 0x37:
+                    intermediate = REG_A;
+                    intermediate = (intermediate & 0xF0) >> 4 | (intermediate & 0x0F) << 4;
+                    REG_A = intermediate;
+                    REG_F_SET_Z(intermediate == 0);
+                    REG_F_SET_N(0);
+                    REG_F_SET_H(0);
+                    REG_F_SET_C(0);
+                    break;
+
+                // SRL r8 - Minus A
+                case 0x38 ... 0x3D:
+                    intermediate = REG_ZZZ(op);
                     REG_F_SET_C(intermediate & 0x01);
-                    REG_YYY(op) = intermediate >> 1;
+                    REG_ZZZ(op) = intermediate >> 1;
                     REG_F_SET_Z(REG_ZZZ(op) == 0);
                     REG_F_SET_N(0);
                     REG_F_SET_H(0);
@@ -954,23 +1105,32 @@ void execute(uint8_t op) {
                     REG_F_SET_H(0);
                     break;
 
-                // BIT n r8
-                case 0x40 ... 0x45: case 0x47:
-                case 0x48 ... 0x4D: case 0x4F:
-                case 0x50 ... 0x55: case 0x57:
-                case 0x58 ... 0x5D: case 0x5F:
-                case 0x60 ... 0x65: case 0x67:
-                case 0x68 ... 0x6D: case 0x6F:
-                case 0x70 ... 0x75: case 0x77:
-                case 0x78 ... 0x7D: case 0x7F:
+                // SRL A
+                case 0x3F:
+                    intermediate = REG_A;
+                    REG_F_SET_C(intermediate & 0x01);
+                    REG_A = intermediate >> 1;
+                    REG_F_SET_Z(REG_A == 0);
+                    REG_F_SET_N(0);
+                    REG_F_SET_H(0);
+
+                // BIT n, r8 - minus A
+                case 0x40 ... 0x45:
+                case 0x48 ... 0x4D:
+                case 0x50 ... 0x55:
+                case 0x58 ... 0x5D:
+                case 0x60 ... 0x65:
+                case 0x68 ... 0x6D:
+                case 0x70 ... 0x75:
+                case 0x78 ... 0x7D:
                     intermediate = YYY(op);  // n
-                    intermediate = (REG_YYY(op) >> intermediate) & 0x01;
+                    intermediate = (REG_ZZZ(op) >> intermediate) & 0x01;
                     REG_F_SET_Z(intermediate == 0);
                     REG_F_SET_N(0);
                     REG_F_SET_H(1);
                     break;
 
-                // BIT n (HL)
+                // BIT n, (HL)
                 case 0x46: case 0x4E:
                 case 0x56: case 0x5E:
                 case 0x66: case 0x6E:
@@ -983,15 +1143,27 @@ void execute(uint8_t op) {
                     REG_F_SET_H(1);
                     break;
 
-                // RES n r8
-                case 0x80 ... 0x85: case 0x87:
-                case 0x88 ... 0x8D: case 0x8F:
-                case 0x90 ... 0x95: case 0x97:
-                case 0x98 ... 0x9D: case 0x9F:
-                case 0xA0 ... 0xA5: case 0xA7:
-                case 0xA8 ... 0xAD: case 0xAF:
-                case 0xB0 ... 0xB5: case 0xB7:
-                case 0xB8 ... 0xBD: case 0xBF:
+                // BIT n, A
+                case 0x47: case 0x4F:
+                case 0x57: case 0x5F:
+                case 0x67: case 0x6F:
+                case 0x77: case 0x7F:
+                    intermediate = YYY(op);  // n
+                    intermediate = (REG_A >> intermediate) & 0x01;
+                    REG_F_SET_Z(intermediate == 0);
+                    REG_F_SET_N(0);
+                    REG_F_SET_H(1);
+                    break;
+
+                // RES n r8 - minus A
+                case 0x80 ... 0x85:
+                case 0x88 ... 0x8D:
+                case 0x90 ... 0x95:
+                case 0x98 ... 0x9D:
+                case 0xA0 ... 0xA5:
+                case 0xA8 ... 0xAD:
+                case 0xB0 ... 0xB5:
+                case 0xB8 ... 0xBD:
                     intermediate = YYY(op);  // n
                     intermediate = 1 << intermediate;
                     REG_ZZZ(op) ^= intermediate;
@@ -1007,18 +1179,28 @@ void execute(uint8_t op) {
                     intermediate = 1 << intermediate;
                     bus_write(REG_HL, bus_read(REG_HL) << intermediate);
                     break;
-                
-                // SET n r8
-                case 0xC0 ... 0xC5: case 0xC7:
-                case 0xC8 ... 0xCD: case 0xCF:
-                case 0xD0 ... 0xD5: case 0xD7:
-                case 0xD8 ... 0xDD: case 0xDF:
-                case 0xE0 ... 0xE5: case 0xE7:
-                case 0xE8 ... 0xED: case 0xEF:
-                case 0xF0 ... 0xF5: case 0xF7:
-                case 0xF8 ... 0xFD: case 0xFF:
+
+                // RES n, A
+                case 0x87: case 0x8F:
+                case 0x97: case 0x9F:
+                case 0xA7: case 0xAF:
+                case 0xB7: case 0xBF:
                     intermediate = YYY(op);  // n
-                    REG_YYY(op) |= (1 << intermediate);
+                    intermediate = 1 << intermediate;
+                    REG_A ^= intermediate;
+                    break;
+                
+                // SET n r8 - minus A
+                case 0xC0 ... 0xC5:
+                case 0xC8 ... 0xCD:
+                case 0xD0 ... 0xD5:
+                case 0xD8 ... 0xDD:
+                case 0xE0 ... 0xE5:
+                case 0xE8 ... 0xED:
+                case 0xF0 ... 0xF5:
+                case 0xF8 ... 0xFD:
+                    intermediate = YYY(op);  // n
+                    REG_ZZZ(op) |= (1 << intermediate);
                     break;
 
                 // SET n (HL)
@@ -1031,8 +1213,17 @@ void execute(uint8_t op) {
                     intermediate = (1 << intermediate);
                     bus_write_16(REG_HL, bus_read(REG_HL) | intermediate);
                     break;
+
+                // SET n, A
+                case 0xC7: case 0xCF:
+                case 0xD7: case 0xDF:
+                case 0xE7: case 0xEF:
+                case 0xF7: case 0xFF:
+                    intermediate = YYY(op);  // n
+                    REG_A |= (1 << intermediate);
+                    break;
             }
-            break;
+            break;  // end CB prefix
 
         // CALL Z, u16 - Call if zero
         case 0xCC:

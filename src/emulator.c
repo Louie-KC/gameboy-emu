@@ -3,6 +3,7 @@
 #include "cartridge.h"
 #include "cpu.h"
 #include "common.h"
+#include "window.h"
 
 #define USAGE "rom_path"
 
@@ -17,16 +18,21 @@ int emulator_run(int argc, char *argv[]) {
 
     if (!cartridge_load(argv[1])) {
         printf("Failed to load ROM\nExiting\n");
-        return 2;
+        return 1;
     }
-    cartridge_print_info();
+
+    if (!window_init()) {
+        return 1;
+    }
 
     cpu_init();
-    uint64_t cycle_count = 0;
-    for(;;) {
-        printf("%llu : ", ++cycle_count);
+    emu_run = 1;
+
+    while (emu_run) {
         cpu_step();
+        window_step();
     }
 
+    window_exit();
     return 0;
 }

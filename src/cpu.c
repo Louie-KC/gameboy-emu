@@ -496,6 +496,11 @@ void execute(uint8_t op) {
             // 8 t cycles
             bus_write(REG_HL, REG_ZZZ(op));
             break;
+
+        // HALT - prevent PC increment
+        case 0x76:
+            ctx.pc--;
+            break;
         
         // LD (HL), A
         case 0x77:
@@ -822,6 +827,14 @@ void execute(uint8_t op) {
             REG_F_SET_N(0);
             REG_F_SET_H(intermediate > 0x0F);
             REG_F_SET_C(intermediate > 0xFF);
+            break;
+
+        // RST 00H
+        case 0xC7:
+            // 16 t cycles
+            ctx.sp -= 2;
+            bus_write_16(ctx.sp, ctx.pc);
+            ctx.pc = 0x00;
             break;
 
         // RET Z
@@ -1258,6 +1271,14 @@ void execute(uint8_t op) {
             REG_A = intermediate & 0xFF;
             break;
 
+        // RST 08H
+        case 0xCF:
+            // 16 t cycles
+            ctx.sp -= 2;
+            bus_write_16(ctx.sp, ctx.pc);
+            ctx.pc = 0x08;
+            break;
+
         // RET NC - return not carry
         case 0xD0:
             if (!REG_F_C) {
@@ -1321,6 +1342,14 @@ void execute(uint8_t op) {
             REG_F_SET_N(1);
             break;
 
+        // RST 10H
+        case 0xD7:
+            // 16 t cycles
+            ctx.sp -= 2;
+            bus_write_16(ctx.sp, ctx.pc);
+            ctx.pc = 0x10;
+            break;
+
         // RET C
         case 0xD8:
             if (REG_F_C) {
@@ -1369,6 +1398,14 @@ void execute(uint8_t op) {
             REG_F_SET_N(1);
             break;
 
+        // RST 18H
+        case 0xDF:
+            // 16 t cycles
+            ctx.sp -= 2;
+            bus_write_16(ctx.sp, ctx.pc);
+            ctx.pc = 0x18;
+            break;
+
         // LD (FF00+u8), A | LD [C], A
         case 0xE0:
             // 12 t cycles
@@ -1408,6 +1445,14 @@ void execute(uint8_t op) {
             REG_F_SET_C(0);
             break;
 
+        // RST 20H
+        case 0xE7:
+            // 16 t cycles
+            ctx.sp -= 2;
+            bus_write_16(ctx.sp, ctx.pc);
+            ctx.pc = 0x20;
+            break;
+
         // ADD SP, i8
         case 0xE8:
             // 16 t cycles
@@ -1440,6 +1485,14 @@ void execute(uint8_t op) {
             REG_F_SET_N(0);
             REG_F_SET_H(0);
             REG_F_SET_C(0);
+            break;
+
+        // RST 28H
+        case 0xEF:
+            // 16 t cycles
+            ctx.sp -= 2;
+            bus_write_16(ctx.sp, ctx.pc);
+            ctx.pc = 0x28;
             break;
 
         // LD A, (FF00+u8) | LD A,[C]
@@ -1497,6 +1550,14 @@ void execute(uint8_t op) {
             REG_F_SET_C(0);
             break;
 
+        // RST 30H
+        case 0xF7:
+            // 16 t cycles
+            ctx.sp -= 2;
+            bus_write_16(ctx.sp, ctx.pc);
+            ctx.pc = 0x30;
+            break;
+
         // LD HL, SP+i8
         case 0xF8:
             // 12 t cycles
@@ -1532,6 +1593,14 @@ void execute(uint8_t op) {
             REG_F_SET_H(intermediate > 0x0F);
             REG_F_SET_C(intermediate > 0xFF);
             break;
+        
+        // RST 38H
+        case 0xFF:
+            // 16 t cycles
+            ctx.sp -= 2;
+            bus_write_16(ctx.sp, ctx.pc);
+            ctx.pc = 0x38;
+            break;
 
         default:
             printf("* cpu execute - Unimplemented 0x%02X\n", op);
@@ -1558,7 +1627,7 @@ void cpu_init(void) {
 }
 
 void cpu_step(void) {
-    print_state();
+    // print_state();
     uint8_t op = fetch();
     execute(op);
 }

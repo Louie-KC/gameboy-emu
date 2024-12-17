@@ -1,7 +1,7 @@
 CC = clang
 CFLAGS = -std=c99 -Wall -Wextra
 EXEC_NAME = gb
-SOURCES = src/main.c src/emulator.c src/cpu.c src/bus.c src/cartridge.c src/window.c
+SOURCES = src/main.c src/emulator.c src/cpu.c src/bus.c src/cartridge.c src/window.c src/ppu.c src/ppu_fetcher.c
 INCLUDE = -Iinclude
 LINK = -lSDL2
 

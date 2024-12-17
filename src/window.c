@@ -1,5 +1,8 @@
 #include "window.h"
+#include "ppu.h"
 #include <SDL2/SDL.h>
+
+#define SCALE 4
 
 static SDL_Window   *window;
 static SDL_Renderer *renderer;
@@ -11,7 +14,7 @@ uint8_t window_init(void) {
         return 0;
     }
     window = SDL_CreateWindow("Gameboy Emulator", SDL_WINDOWPOS_CENTERED,
-        SDL_WINDOWPOS_CENTERED, GB_SCREEN_RES_X, GB_SCREEN_RES_Y,
+        SDL_WINDOWPOS_CENTERED, GB_SCREEN_RES_X * SCALE, GB_SCREEN_RES_Y * SCALE,
         SDL_WINDOW_SHOWN);
     if (!window) {
         printf("[ERROR] Failed to create SDL2 window: %s\n", SDL_GetError());
@@ -43,6 +46,13 @@ void window_step(void) {
     if (event.type == SDL_QUIT) {
         emu_run = 0;    
     }
+}
+
+void window_draw(void) {
+    SDL_UpdateTexture(texture, NULL, ppu_view, GB_SCREEN_RES_X * 3);
+    SDL_RenderCopy(renderer, texture, NULL, NULL);
+    SDL_RenderPresent(renderer);
+    SDL_RenderClear(renderer);
 }
 
 void window_exit(void) {

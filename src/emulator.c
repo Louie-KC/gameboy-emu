@@ -19,7 +19,7 @@ int emulator_run(int argc, char *argv[]) {
         return 1;
     }
 
-    if (!cartridge_load(argv[1])) {
+    if (!cartridge_rom_load(argv[1])) {
         printf("Failed to load ROM\nExiting\n");
         return 1;
     }

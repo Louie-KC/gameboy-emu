@@ -11,13 +11,13 @@ uint8_t enable_interrupt;
 uint8_t bus_read(uint16_t addr) {
     switch (addr) {
         case 0x0000 ... BUS_VRAM_ADDR - 1:
-            return cartridge_read(addr);
+            return cartridge_rom_read(addr);
         case BUS_VRAM_ADDR ... BUS_EXT_RAM_ADDR - 1:
             // Video RAM
             return vram[addr - BUS_VRAM_ADDR];
         case BUS_EXT_RAM_ADDR ... BUS_WRAM_ADDR - 1:
-            // TODO: External RAM
-            return 0;
+            // External RAM
+            return cartridge_ram_read(addr - BUS_EXT_RAM_ADDR);
         case BUS_WRAM_ADDR ... BUS_ECHO_ADDR - 1:
             // Working RAM
             return wram[addr - BUS_WRAM_ADDR];
@@ -47,13 +47,16 @@ uint8_t bus_read(uint16_t addr) {
 void bus_write(uint16_t addr, uint8_t value) {
     switch (addr) {
         case 0x0000 ... BUS_VRAM_ADDR - 1:
-            break;  // ROM, READ-ONLY
+            // Cartridge ROM
+            cartridge_bank_operation(addr, value);
+            break;
         case BUS_VRAM_ADDR ... BUS_EXT_RAM_ADDR - 1:
             // Video RAM
             vram[addr - BUS_VRAM_ADDR] = value;
             break;
         case BUS_EXT_RAM_ADDR ... BUS_WRAM_ADDR - 1:
-            // TODO: External RAM
+            // External RAM
+            cartridge_ram_write(addr, value);
             break;
         case BUS_WRAM_ADDR ... BUS_ECHO_ADDR - 1:
             // Working RAM

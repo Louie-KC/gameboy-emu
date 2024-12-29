@@ -650,11 +650,11 @@ void execute(uint8_t op) {
         // SBC A, A
         case 0x9F:
             ctx.t_cycles = 4;
-            intermediate = -REG_F_C;
-            REG_F_SET_Z(REG_F_C == 0);
+            REG_A = 0 - REG_F_C;
+            REG_F_SET_Z(REG_A == 0);
             REG_F_SET_N(1);
-            REG_F_SET_H(REG_F_C == 1);
-            // No change to carry flag needed
+            REG_F_SET_H(REG_F_C == 1);  // underflow
+            REG_F_SET_C(REG_F_C == 1);
             break;
 
         // AND A, r8

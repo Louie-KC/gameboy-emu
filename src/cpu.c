@@ -74,31 +74,31 @@ void execute(uint8_t op) {
     switch (op) {
         // NOP
         case 0x00:
-            // 4 t cycles
+            ctx.t_cycles = 4;
             break;
 
         // LD BC, u16
         case 0x01:
-            // 12 t cycles
+            ctx.t_cycles = 12;
             intermediate = fetch_16();
             REG_BC_SET(intermediate);
             break;
 
         // LD (BC), A
         case 0x02:
-            // 8 t cycles
+            ctx.t_cycles = 8;
             bus_write(REG_BC, REG_A);
             break;
 
         // INC BC
         case 0x03:
-            // 8 t cycles
+            ctx.t_cycles = 8;
             REG_BC_SET(REG_BC + 1);
             break;
 
         // RLCA - Rotate Left Carry register A
         case 0x07:
-            // 4 t cycles
+            ctx.t_cycles = 4;
             REG_F_SET_C(REG_A >> 7);
             intermediate = (REG_A << 1) | REG_F_C;
             REG_F_SET_N(0);
@@ -108,13 +108,13 @@ void execute(uint8_t op) {
 
         // LD (u16), SP
         case 0x08:
-            // 20 t cycles
+            ctx.t_cycles = 20;
             bus_write_16(fetch_16(), ctx.sp);
             break;
 
         // ADD HL, BC
         case 0x09:
-            // 8 t cycles
+            ctx.t_cycles = 8;
             intermediate = REG_HL + REG_BC;
             REG_HL_SET(intermediate);
             REG_F_SET_N(0);
@@ -124,13 +124,13 @@ void execute(uint8_t op) {
 
         // LD A, (BC) - Load into A the value at addr BC
         case 0x0A:
-            // 8 t cycles
+            ctx.t_cycles = 8;
             REG_A = bus_read(REG_BC);
             break;
 
         // DEC BC
         case 0x0B:
-            // 8 t cycles
+            ctx.t_cycles = 8;
             REG_BC_SET(REG_BC - 1);
             break;
    
@@ -138,7 +138,7 @@ void execute(uint8_t op) {
         case 0x04: case 0x0C:
         case 0x14: case 0x1C:
         case 0x24: case 0x2C:
-            // 4 t cycles
+            ctx.t_cycles = 4;
             intermediate = REG_YYY(op) + 1;
             REG_YYY(op) = intermediate & 0xFF;
             REG_F_SET_Z(REG_YYY(op) == 0);
@@ -151,7 +151,7 @@ void execute(uint8_t op) {
         case 0x05: case 0x0D:
         case 0x15: case 0x1D:
         case 0x25: case 0x2D:
-            // 4 t cycles
+            ctx.t_cycles = 4;
             intermediate = REG_YYY(op) - 1;
             REG_YYY(op) = intermediate & 0xFF;
             REG_F_SET_Z(REG_YYY(op) == 0);
@@ -163,13 +163,13 @@ void execute(uint8_t op) {
         case 0x06: case 0x0E:
         case 0x16: case 0x1E:
         case 0x26:
-            // 8 t cycles
+            ctx.t_cycles = 8;
             REG_YYY(op) = fetch();
             break;
 
         // RRCA
         case 0x0F:
-            // 4 t cycles
+            ctx.t_cycles = 4;
             REG_F_SET_C(REG_A & 0x01);
             intermediate = (REG_F_C << 7) | (REG_A >> 1);
             REG_A = intermediate;
@@ -180,33 +180,33 @@ void execute(uint8_t op) {
 
         // STOP
         case 0x10:
-            // 4 t cycles
+            ctx.t_cycles = 4;
             printf("STOP\n");
             break;
         
         // Load immediate 16 value into DE
         case 0x11:
-            // 12 t cycles
+            ctx.t_cycles = 12;
             intermediate = fetch_16();
             REG_DE_SET(intermediate);
             break;
 
         // LD (DE), A
         case 0x12:
-            // 8 t cycles
+            ctx.t_cycles = 8;
             bus_write(REG_DE, REG_A);
             break;
 
         // INC DE
         case 0x13:
-            // 8 t cycles
+            ctx.t_cycles = 8;
             intermediate = REG_DE + 1;
             REG_DE_SET(intermediate);
             break;
 
         // RLA - Rotate Left register A
         case 0x17:
-            // 4 t cycles
+            ctx.t_cycles = 4;
             intermediate = REG_A >> 7;
             REG_A = (REG_A << 1) | REG_F_C;
             REG_F_SET_C(intermediate);
@@ -217,14 +217,14 @@ void execute(uint8_t op) {
 
         // Jump relative unconditional
         case 0x18:
-            // 12 t cycles
+            ctx.t_cycles = 12;
             intermediate = fetch();
             ctx.pc += (int8_t) intermediate;
             break;
 
         // ADD HL, DE
         case 0x19:
-            // 8 t cycles
+            ctx.t_cycles = 8;
             intermediate = REG_HL + REG_DE;
             REG_HL_SET(intermediate);
             REG_F_SET_N(0);
@@ -234,20 +234,20 @@ void execute(uint8_t op) {
 
         // LD A, (DE) - Load into A the value at addr DE
         case 0x1A:
-            // 8 t cycles
+            ctx.t_cycles = 8;
             REG_A = bus_read(REG_DE);
             break;
 
         // DEC DE
         case 0x1B:
-            // 8 t cycles
+            ctx.t_cycles = 8;
             intermediate = REG_DE - 1;
             REG_DE_SET(intermediate);
             break;
 
         // RRA
         case 0x1F:
-            // 4 t cycles
+            ctx.t_cycles = 4;
             intermediate = REG_A & 0x01;
             REG_A = (REG_F_C << 7) | (REG_A >> 1);
             REG_F_SET_Z(0);
@@ -258,24 +258,25 @@ void execute(uint8_t op) {
 
         // Jump relative not zero (JR NZ)
         case 0x20:
-            // 8 t cycles
             intermediate = fetch();
             if (!REG_F_Z) {
-                // + 4 t cycles
+                ctx.t_cycles = 12;
                 ctx.pc += (int8_t) intermediate;
+            } else {
+                ctx.t_cycles = 8;
             }
             break;
 
         // Load immediate 16 into HL
         case 0x21:
-            // 12 t cycles
+            ctx.t_cycles = 12;
             intermediate = fetch_16();
             REG_HL_SET(intermediate);
             break;
 
         // LD (HL+), A - Load register A to HL addr (then increment HL)
         case 0x22:
-            // 8 t cycles
+            ctx.t_cycles = 8;
             bus_write(REG_HL, REG_A);
             intermediate = REG_HL + 1;
             REG_HL_SET(intermediate);
@@ -283,7 +284,7 @@ void execute(uint8_t op) {
 
         // INC HL
         case 0x23:
-            // 8 t cycles
+            ctx.t_cycles = 8;
             intermediate = REG_HL + 1;
             REG_HL_SET(intermediate);
             break;
@@ -292,17 +293,19 @@ void execute(uint8_t op) {
 
         // JR Z, i8
         case 0x28:
-            // 8 t cycles
             intermediate = fetch();
             if (REG_F_Z) {
-                // + 4 t cycles
+                ctx.t_cycles = 12;
                 ctx.pc += (int8_t) intermediate;
+            } else {
+                // do nothing
+                ctx.t_cycles = 8;
             }
             break;
 
         // ADD HL, HL
         case 0x29:
-            // 8 t cycles
+            ctx.t_cycles = 8;
             intermediate = REG_HL + REG_HL;
             REG_HL_SET(intermediate);
             REG_F_SET_N(0);
@@ -312,7 +315,7 @@ void execute(uint8_t op) {
 
         // LD A, (HL+) - Load value at HL addr (and post increment HL) to register A
         case 0x2A:
-            // 8 t cycles
+            ctx.t_cycles = 8;
             REG_A = bus_read_16(REG_HL);
             intermediate = REG_HL + 1;
             REG_HL_SET(intermediate);
@@ -320,20 +323,20 @@ void execute(uint8_t op) {
         
         // Decrement HL
         case 0x2B:
-            // 8 t cycles
+            ctx.t_cycles = 8;
             intermediate = REG_HL - 1;
             REG_HL_SET(intermediate);
             break;
 
         // LD A, u8
         case 0x2E:
-            // 8 t cycles
+            ctx.t_cycles = 8;
             REG_A = fetch();
             break;
 
         // Complement register A (CPL)
         case 0x2F:
-            // 4 t cycles
+            ctx.t_cycles = 4;
             REG_A = REG_A ^ 0xFF;
             REG_F_SET_N(1);
             REG_F_SET_H(1);
@@ -341,23 +344,25 @@ void execute(uint8_t op) {
 
         // Jump relative if not carry
         case 0x30:
-            // 8 t cycles
             intermediate = fetch();
             if (!REG_F_C) {
-                // + 4 t cycles
+                ctx.t_cycles = 12;
                 ctx.pc += (int8_t) intermediate;
+            } else {
+                // do nothing
+                ctx.t_cycles = 8;
             }
             break;
 
         // LD SP, u16
         case 0x31:
-            // 12 t cycles
+            ctx.t_cycles = 12;
             ctx.sp = fetch_16();
             break;
 
         // LD (HL-), A
         case 0x32:
-            // 8 t cycles
+            ctx.t_cycles = 8;
             bus_write(REG_HL, REG_A);
             intermediate = REG_HL - 1;
             REG_HL_SET(intermediate);
@@ -365,33 +370,33 @@ void execute(uint8_t op) {
 
         // Increment SP
         case 0x33:
-            // 8 t cycles
+            ctx.t_cycles = 8;
             ctx.sp++;
             break;
         
         // Increment value at addr HL
         case 0x34:
-            // 12 t cycles
+            ctx.t_cycles = 12;
             intermediate = bus_read(REG_HL);
             bus_write(REG_HL, intermediate + 1);
             break;
         
         // Decrement value at addr HL
         case 0x35:
-            // 12 t cycles
+            ctx.t_cycles = 12;
             intermediate = bus_read(REG_HL);
             bus_write(REG_HL, intermediate - 1);
             break;
 
         // Load immediate to HL addr
         case 0x36:
-            // 12 t cycles
+            ctx.t_cycles = 12;
             bus_write(REG_HL, fetch());
             break;
 
         // SCF - Set carry flag
         case 0x37:
-            // 4 t cycles
+            ctx.t_cycles = 4;
             REG_F_SET_N(0);
             REG_F_SET_H(0);
             REG_F_SET_C(1);
@@ -399,17 +404,18 @@ void execute(uint8_t op) {
 
         // JR C, i8 - Jump relative if carry
         case 0x38:
-            // 8 t cycles
             intermediate = fetch();
             if (REG_F_C) {
-                // + 4 t cycles
+                ctx.t_cycles = 12;
                 ctx.pc += (int8_t) intermediate;
+            } else {
+                ctx.t_cycles = 8;
             }
             break;
         
         // ADD HL, SP
         case 0x39:
-            // 8 t cycles
+            ctx.t_cycles = 8;
             intermediate = REG_HL + ctx.sp;
             REG_HL_SET(intermediate);
             REG_F_SET_N(0);
@@ -419,7 +425,7 @@ void execute(uint8_t op) {
 
         // Load value at HR addr (and decrement HL) to register A
         case 0x3A:
-            // 8 t cycles
+            ctx.t_cycles = 8;
             REG_A = bus_read_16(REG_HL);
             intermediate = REG_HL - 1;
             REG_HL_SET(intermediate);
@@ -427,13 +433,13 @@ void execute(uint8_t op) {
 
         // Decrement SP
         case 0x3B:
-            // 8 t cycles
+            ctx.t_cycles = 8;
             ctx.sp--;
             break;
         
         // Increment A
         case 0x3C:
-            // 4 t cycles
+            ctx.t_cycles = 4;
             REG_A++;
             REG_F_SET_Z(REG_A == 0);
             REG_F_SET_N(0);
@@ -442,7 +448,7 @@ void execute(uint8_t op) {
         
         // Decrement A
         case 0x3D:
-            // 4 t cycles
+            ctx.t_cycles = 4;
             REG_A--;
             REG_F_SET_Z(REG_A == 0);
             REG_F_SET_N(1);
@@ -451,13 +457,13 @@ void execute(uint8_t op) {
 
         // Load immediate 8 to register A
         case 0x3E:
-            // 8 t cycles
+            ctx.t_cycles = 8;
             REG_A = fetch(); 
             break;
         
         // CCF - Complement Carry Flag
         case 0x3F:
-            // 4 t cycles
+            ctx.t_cycles = 4;
             REG_F_SET_N(0);
             REG_F_SET_H(0);
             REG_F_SET_C(REG_F_C ^ 0x01);
@@ -470,7 +476,7 @@ void execute(uint8_t op) {
         case 0x58 ... 0x5D:
         case 0x60 ... 0x65:
         case 0x68 ... 0x6D:
-            // 4 t cycles
+            ctx.t_cycles = 4;
             REG_YYY(op) = REG_ZZZ(op);
             break;
 
@@ -479,7 +485,7 @@ void execute(uint8_t op) {
         case 0x56: case 0x5E:
         case 0x66: case 0x6E:
                    case 0x7E:
-            // 8 t cycles
+            ctx.t_cycles = 8;
             REG_YYY(op) = bus_read(REG_HL);
             break;
 
@@ -487,41 +493,43 @@ void execute(uint8_t op) {
         case 0x47: case 0x4F:
         case 0x57: case 0x5F:
         case 0x67: case 0x6F:
-            // 4 t cycles
+            ctx.t_cycles = 4;
             REG_YYY(op) = REG_A;
             break;
 
         // LD (HL), r8 - Minus register A
         case 0x70 ... 0x75:
-            // 8 t cycles
+            ctx.t_cycles = 8;
             bus_write(REG_HL, REG_ZZZ(op));
             break;
 
         // HALT - prevent PC increment
         case 0x76:
+            ctx.t_cycles = 4;
             ctx.pc--;
             break;
         
         // LD (HL), A
         case 0x77:
+            ctx.t_cycles = 8;
             bus_write(REG_HL, REG_A);
             break;
 
         // LD A, r8 - minus A, A
         case 0x78 ... 0x7D:
-            // 4 t cycles
+            ctx.t_cycles = 4;
             REG_A = REG_ZZZ(op);
             break;
 
         // LD A, A - Essentially a NOP
         case 0x7F:
-            // 4 t cycles
+            ctx.t_cycles = 4;
             // do nothing
             break;
 
         // ADD A, r8 - Minus A
         case 0x80 ... 0x85:
-            // 4 t cycles
+            ctx.t_cycles = 4;
             intermediate = REG_A + REG_ZZZ(op);
             REG_F_SET_Z((intermediate & 0xFF) == 0);
             REG_F_SET_N(0);
@@ -532,7 +540,7 @@ void execute(uint8_t op) {
 
         // ADD A, (HL)
         case 0x86:
-            // 8 t cycles
+            ctx.t_cycles = 8;
             intermediate = REG_A + bus_read(REG_HL);
             REG_F_SET_Z((intermediate & 0xFF) == 0);
             REG_F_SET_N(0);
@@ -543,7 +551,7 @@ void execute(uint8_t op) {
 
         // ADD A, A
         case 0x87:
-            // 4 t cycles
+            ctx.t_cycles = 4;
             intermediate = REG_A + REG_A;
             REG_F_SET_Z((intermediate & 0xFF) == 0);
             REG_F_SET_N(0);
@@ -554,7 +562,7 @@ void execute(uint8_t op) {
 
         // ADC A, r8 - minus A
         case 0x88 ... 0x8D:
-            // 4 t cycles
+            ctx.t_cycles = 4;
             intermediate = REG_A + REG_F_C + REG_ZZZ(op);
             REG_F_SET_Z((intermediate & 0xFF) == 0);
             REG_F_SET_N(0);
@@ -565,6 +573,7 @@ void execute(uint8_t op) {
 
         // ADC A, (HL)
         case 0x8E:
+            ctx.t_cycles = 8;
             intermediate = REG_A + REG_F_C + bus_read(REG_HL);
             REG_F_SET_Z((intermediate & 0xFF) == 0);
             REG_F_SET_N(0);
@@ -574,6 +583,7 @@ void execute(uint8_t op) {
             break;
 
         case 0x8F:
+            ctx.t_cycles = 4;
             intermediate = REG_A + REG_A + REG_F_C;
             REG_F_SET_Z((intermediate & 0xFF) == 0);
             REG_F_SET_N(0);
@@ -584,7 +594,7 @@ void execute(uint8_t op) {
 
         // SUB A, r8 - Subtract register from register A
         case 0x90 ... 0x95:
-            // 4 t cycles
+            ctx.t_cycles = 4;
             intermediate = REG_ZZZ(op);
             REG_F_SET_C(intermediate > REG_A);
             REG_F_SET_H(intermediate > 0x0F);
@@ -595,6 +605,7 @@ void execute(uint8_t op) {
 
         // SUB A, (HL)
         case 0x96:
+            ctx.t_cycles = 8;
             intermediate = bus_read(REG_HL);
             REG_F_SET_C(intermediate > REG_A);
             REG_F_SET_H(intermediate > 0x0F);
@@ -605,6 +616,7 @@ void execute(uint8_t op) {
 
         // SUB A, A
         case 0x97:
+            ctx.t_cycles = 4;
             REG_A = 0;
             REG_F_SET_Z(0);
             REG_F_SET_N(1);
@@ -614,6 +626,7 @@ void execute(uint8_t op) {
 
         // SBC A, r8 - Subtract carry
         case 0x98 ... 0x9D:
+            ctx.t_cycles = 4;
             intermediate = REG_A - REG_F_C - REG_ZZZ(op);
             REG_F_SET_H(intermediate > 0x0F);
             REG_F_SET_C(REG_ZZZ(op) + REG_F_C > REG_A);
@@ -624,6 +637,7 @@ void execute(uint8_t op) {
 
         // SBC A, (HL)
         case 0x9E:
+            ctx.t_cycles = 8;
             intermediate = bus_read(REG_HL);
             REG_F_SET_C(REG_F_C + intermediate > REG_A);
             intermediate = REG_A - REG_F_C - intermediate;
@@ -635,6 +649,7 @@ void execute(uint8_t op) {
 
         // SBC A, A
         case 0x9F:
+            ctx.t_cycles = 4;
             intermediate = -REG_F_C;
             REG_F_SET_Z(REG_F_C == 0);
             REG_F_SET_N(1);
@@ -644,7 +659,7 @@ void execute(uint8_t op) {
 
         // AND A, r8
         case 0xA0 ... 0xA5:
-            // 4 t cycles
+            ctx.t_cycles = 4;
             REG_A = REG_A & REG_ZZZ(op);
             REG_F_SET_Z(REG_A == 0);
             REG_F_SET_N(0);
@@ -654,7 +669,7 @@ void execute(uint8_t op) {
 
         // AND A, (HL)
         case 0xA6:
-            // 8 t cycles
+            ctx.t_cycles = 8;
             REG_A = REG_A & bus_read(REG_HL);
             REG_F_SET_Z(REG_A == 0);
             REG_F_SET_N(0);
@@ -664,7 +679,7 @@ void execute(uint8_t op) {
 
         // AND A, A
         case 0xA7:
-            // 4 t cycles
+            ctx.t_cycles = 4;
             REG_F_SET_Z(REG_A == 0);
             REG_F_SET_N(0);
             REG_F_SET_H(1);
@@ -673,7 +688,7 @@ void execute(uint8_t op) {
 
         // XOR A, r8
         case 0xA8 ... 0xAD:
-            // 4 t cycles
+            ctx.t_cycles = 4;
             intermediate = REG_A ^ REG_ZZZ(op);
             REG_F_SET_Z(intermediate == 0);
             REG_F_SET_N(0);
@@ -683,7 +698,7 @@ void execute(uint8_t op) {
         
         // XOR A, (HL)
         case 0xAE:
-            // 8 t cycles
+            ctx.t_cycles = 8;
             intermediate = REG_A ^ bus_read(REG_HL);
             REG_A = intermediate & 0xFF;
             REG_F_SET_Z(intermediate == 0);
@@ -694,6 +709,7 @@ void execute(uint8_t op) {
 
         // XOR A, A
         case 0xAF:
+            ctx.t_cycles = 4;
             REG_A = 0;
             REG_F_SET_Z(1);
             REG_F_SET_N(0);
@@ -703,7 +719,7 @@ void execute(uint8_t op) {
 
         // OR A, r8
         case 0xB0 ... 0xB5:
-            // 4 t cycles
+            ctx.t_cycles = 4;
             intermediate = REG_A | REG_ZZZ(op);
             REG_A = intermediate;
             REG_F_SET_Z(intermediate == 0);
@@ -714,7 +730,7 @@ void execute(uint8_t op) {
 
         // OR A, (HL)
         case 0xB6:
-            // 8 t cycles
+            ctx.t_cycles = 8;
             intermediate = REG_A | fetch();
             REG_A = intermediate;
             REG_F_SET_Z(intermediate == 0);
@@ -725,7 +741,7 @@ void execute(uint8_t op) {
 
         // OR A, A
         case 0xB7:
-            // 4 t cycles
+            ctx.t_cycles = 4;
             REG_F_SET_Z(REG_A == 0);
             REG_F_SET_N(0);
             REG_F_SET_H(0);
@@ -734,7 +750,7 @@ void execute(uint8_t op) {
 
         // CP A, r8 - Compare A to r8
         case 0xB8 ... 0xBD:
-            // 4 t cycles
+            ctx.t_cycles = 4;
             intermediate = REG_A - REG_ZZZ(op);
             REG_F_SET_Z(intermediate == 0);
             REG_F_SET_N(1);
@@ -744,7 +760,7 @@ void execute(uint8_t op) {
 
         // CP A, (HL) - Compare A to (HL)
         case 0xBE:
-            // 8 t cycles
+            ctx.t_cycles = 8;
             intermediate = REG_A - bus_read(REG_HL);
             REG_F_SET_Z(intermediate == 0);
             REG_F_SET_N(1);
@@ -754,7 +770,7 @@ void execute(uint8_t op) {
 
         // CP A, A - Compare A to A
         case 0xBF:
-            // 4 t cycles
+            ctx.t_cycles = 4;
             REG_F_SET_Z(1);
             REG_F_SET_N(1);
             REG_F_SET_H(0);
@@ -764,18 +780,18 @@ void execute(uint8_t op) {
         // RET NZ - return not zero
         case 0xC0:
             if (!REG_F_Z) {
-                // 20 t cycles
+                ctx.t_cycles = 20;
                 ctx.pc = bus_read_16(ctx.sp);
                 ctx.sp += 2;
             } else {
-                // 8 t cycles
+                ctx.t_cycles = 8;
                 // Do nothing
             }
             break;
 
         // POP BC
         case 0xC1:
-            // 12 t cycles
+            ctx.t_cycles = 12;
             intermediate = bus_read_16(ctx.sp);
             ctx.sp += 2;
             REG_BC_SET(intermediate);
@@ -783,44 +799,45 @@ void execute(uint8_t op) {
 
         // Jump not zero
         case 0xC2:
-            // 12 t cycles
             intermediate = fetch_16();
             if (!REG_F_Z) {
-                // + 4 t cycles
+                ctx.t_cycles = 16;
                 ctx.pc = intermediate;
+            } else {
+                ctx.t_cycles = 12;
             }
             break;
 
         // Jump unconditional
         case 0xC3:
-            // 16 t cycles
+            ctx.t_cycles = 16;
             ctx.pc = fetch_16();
             break;
 
         // CALL NZ, u16
         case 0xC4:
-            // 12 t cycles
             intermediate = fetch_16();
             if (!REG_F_Z) {
-                // + 12 t cycles
+                ctx.t_cycles = 24;
                 ctx.sp -= 2;
                 bus_write_16(ctx.sp, ctx.pc);
                 ctx.pc = intermediate;
             } else {
+                ctx.t_cycles = 12;
                 // Do nothing
             }
             break;
 
         // PUSH BC
         case 0xC5:
-            // 16 t cycles
+            ctx.t_cycles = 16;
             ctx.sp -= 2;
             bus_write_16(ctx.sp, REG_BC);
             break;
         
         // ADD A, u8
         case 0xC6:
-            // 8 t cycles
+            ctx.t_cycles = 8;
             intermediate = REG_A + fetch();
             REG_A = intermediate & 0xFF;
             REG_F_SET_Z(REG_A == 0);
@@ -831,7 +848,7 @@ void execute(uint8_t op) {
 
         // RST 00H
         case 0xC7:
-            // 16 t cycles
+            ctx.t_cycles = 16;
             ctx.sp -= 2;
             bus_write_16(ctx.sp, ctx.pc);
             ctx.pc = 0x00;
@@ -840,36 +857,37 @@ void execute(uint8_t op) {
         // RET Z
         case 0xC8:
             if (REG_F_Z) {
-                // 20 t cycles
+                ctx.t_cycles = 20;
                 ctx.pc = bus_read_16(ctx.sp);
                 ctx.sp += 2;
             } else {
-                // 8 t cycles
+                ctx.t_cycles = 8;
                 // Do nothing
             }
             break;
 
         // RET
         case 0xC9:
-            // 16 t cycles
+            ctx.t_cycles = 16;
             ctx.pc = bus_read_16(ctx.sp);
             ctx.sp += 2;
             break;
 
         // JP Z, u16
         case 0xCA:
-            // 12 t cycles
             intermediate = fetch_16();
             if (REG_F_Z) {
-                // + 4 t cycles
+                ctx.t_cycles = 16;
                 ctx.pc = intermediate;
+            } else {
+                ctx.t_cycles = 12;
             }
             break;
 
         // CB prefix table
         case 0xCB:
             op = fetch();
-            // 8 t cycles
+            ctx.t_cycles = 8;
             switch (op) {
                 
                 // RLC r8 - minus A
@@ -884,7 +902,7 @@ void execute(uint8_t op) {
 
                 // RLC (HL)
                 case 0x06:
-                    // + 4 t cycles
+                    ctx.t_cycles += 4;
                     intermediate = bus_read(REG_HL);
                     REG_F_SET_C(intermediate >> 7);
                     intermediate = (intermediate << 1) | REG_F_C;
@@ -916,7 +934,7 @@ void execute(uint8_t op) {
                 
                 // RRC (HL)
                 case 0x0E:
-                    // + 4 t cycles
+                    ctx.t_cycles += 4;
                     intermediate = bus_read(REG_HL);
                     REG_F_SET_C(intermediate & 0x01);
                     intermediate = (REG_F_C << 7) | (intermediate >> 1);
@@ -948,7 +966,7 @@ void execute(uint8_t op) {
 
                 // RL (HL)
                 case 0x16:
-                    // + 4 t cycles
+                    ctx.t_cycles += 4;
                     intermediate = (bus_read(REG_HL) << 1) | REG_F_C;
                     REG_F_SET_C((intermediate >> 8) & 0x01);
                     bus_write(REG_HL, intermediate & 0xFF);
@@ -979,7 +997,7 @@ void execute(uint8_t op) {
                 
                 // RR (HL)
                 case 0x1E:
-                    // + 4 t cycles
+                    ctx.t_cycles += 4;
                     intermediate = (bus_read(REG_HL) << 1) | REG_F_C;
                     REG_F_SET_C((intermediate & 0x02) >> 1);
                     bus_write(REG_HL, intermediate & 0xFF);
@@ -1010,7 +1028,7 @@ void execute(uint8_t op) {
 
                 // SLA (HL)
                 case 0x26:
-                    // + 4 t cycles
+                    ctx.t_cycles += 4;
                     intermediate = bus_read(REG_HL);
                     REG_F_SET_C(intermediate >> 7);
                     intermediate = intermediate << 1;
@@ -1042,7 +1060,7 @@ void execute(uint8_t op) {
                 
                 // SRA (HL)
                 case 0x2E:
-                    // + 4 t cycles
+                    ctx.t_cycles += 4;
                     intermediate = bus_read(REG_HL);
                     REG_F_SET_C(intermediate & 0x01);
                     intermediate = (intermediate & 0x80) | intermediate >> 1;
@@ -1075,7 +1093,7 @@ void execute(uint8_t op) {
 
                 // SWAP (HL)
                 case 0x36:
-                    // + 4 t cycles
+                    ctx.t_cycles += 4;
                     intermediate = bus_read(REG_HL);
                     intermediate = (intermediate & 0xF0) >> 4 | (intermediate & 0x0F) << 4;
                     bus_write(REG_HL, intermediate);
@@ -1108,7 +1126,7 @@ void execute(uint8_t op) {
                 
                 // SRL (HL)
                 case 0x3E:
-                    // + 4 t cycles
+                    ctx.t_cycles += 4;
                     intermediate = bus_read(REG_HL);
                     REG_F_SET_C(intermediate & 0x01);
                     intermediate = intermediate >> 1;
@@ -1148,7 +1166,7 @@ void execute(uint8_t op) {
                 case 0x56: case 0x5E:
                 case 0x66: case 0x6E:
                 case 0x76: case 0x7E:
-                    // + 4 t cycles
+                    ctx.t_cycles += 4;
                     intermediate = YYY(op);  // n
                     intermediate = (bus_read(REG_HL) >> intermediate) & 0x01;
                     REG_F_SET_Z(intermediate == 0);
@@ -1187,7 +1205,7 @@ void execute(uint8_t op) {
                 case 0x96: case 0x9E:
                 case 0xA6: case 0xAE:
                 case 0xB6: case 0xBE:
-                    // + 4 t cycles
+                    ctx.t_cycles += 4;
                     intermediate = YYY(op);  // n
                     intermediate = 1 << intermediate;
                     bus_write(REG_HL, bus_read(REG_HL) << intermediate);
@@ -1221,7 +1239,7 @@ void execute(uint8_t op) {
                 case 0xD6: case 0xDE:
                 case 0xE6: case 0xEE:
                 case 0xF6: case 0xFE:
-                    // + 4 t cycles
+                    ctx.t_cycles += 4;
                     intermediate = YYY(op);  // n
                     intermediate = (1 << intermediate);
                     bus_write_16(REG_HL, bus_read(REG_HL) | intermediate);
@@ -1242,18 +1260,18 @@ void execute(uint8_t op) {
         case 0xCC:
             intermediate = fetch_16();
             if (REG_F_Z) {
-                // 24 T cycles
+                ctx.t_cycles = 24;
                 ctx.sp -= 2;
                 bus_write_16(ctx.sp, ctx.pc);
                 ctx.pc = intermediate;
             } else {
-                // 12 T cycles
+                ctx.t_cycles = 12;
             }
             break;
 
         // CALL u16 - Call immediate 16
         case 0xCD:
-            // 24 t cycles
+            ctx.t_cycles = 24;
             intermediate = fetch_16();
             ctx.sp -= 2;
             bus_write_16(ctx.sp, ctx.pc);
@@ -1262,7 +1280,7 @@ void execute(uint8_t op) {
 
         // ADC A, u8 - Add carry + immediate to register A (8)
         case 0xCE:
-            // 8 t cycles
+            ctx.t_cycles = 8;
             intermediate = REG_A + REG_F_C + fetch();
             REG_F_SET_Z((intermediate & 0xFF) == 0);
             REG_F_SET_N(0);
@@ -1273,7 +1291,7 @@ void execute(uint8_t op) {
 
         // RST 08H
         case 0xCF:
-            // 16 t cycles
+            ctx.t_cycles = 16;
             ctx.sp -= 2;
             bus_write_16(ctx.sp, ctx.pc);
             ctx.pc = 0x08;
@@ -1282,18 +1300,18 @@ void execute(uint8_t op) {
         // RET NC - return not carry
         case 0xD0:
             if (!REG_F_C) {
-                // 20 t cycles
+                ctx.t_cycles = 20;
                 ctx.pc = bus_read_16(ctx.sp);
                 ctx.sp += 2;
             } else {
-                // 8 t cycles
+                ctx.t_cycles = 8;
                 // Do nothing
             }
             break;
 
         // POP DE
         case 0xD1:
-            // 12 t cycles
+            ctx.t_cycles = 12;
             intermediate = bus_read_16(ctx.sp);
             ctx.sp += 2;
             REG_DE_SET(intermediate);
@@ -1301,11 +1319,12 @@ void execute(uint8_t op) {
 
         // JP NC, u16
         case 0xD2:
-            // 12 t cycles
             intermediate = fetch_16();
             if (!REG_F_C) {
-                // 4 t cycles
+                ctx.t_cycles = 16;
                 ctx.pc = intermediate;
+            } else {
+                ctx.t_cycles = 12;
             }
             break;
 
@@ -1313,26 +1332,26 @@ void execute(uint8_t op) {
         case 0xD4:
             intermediate = fetch_16();
             if (!REG_F_C) {
-                // 24 t cycles
+                ctx.t_cycles = 24;
                 ctx.sp -= 2;
                 bus_write_16(ctx.sp, ctx.pc);
                 ctx.pc = intermediate;
             } else {
-                // 12 t cycles
+                ctx.t_cycles = 12;
                 // do nothing
             }
             break;
 
         // PUSH DE
         case 0xD5:
-            // 16 t cycles
+            ctx.t_cycles = 16;
             ctx.sp -= 2;
             bus_write_16(ctx.sp, REG_DE);
             break;
 
         // SUB A, u8
         case 0xD6:
-            // 8 t cycles
+            ctx.t_cycles = 8;
             intermediate = fetch();
             REG_F_SET_C(intermediate > REG_A);
             REG_F_SET_H(intermediate > 0x0F);
@@ -1344,7 +1363,7 @@ void execute(uint8_t op) {
 
         // RST 10H
         case 0xD7:
-            // 16 t cycles
+            ctx.t_cycles = 16;
             ctx.sp -= 2;
             bus_write_16(ctx.sp, ctx.pc);
             ctx.pc = 0x10;
@@ -1353,11 +1372,11 @@ void execute(uint8_t op) {
         // RET C
         case 0xD8:
             if (REG_F_C) {
-                // 20 t cycles
+                ctx.t_cycles = 20;
                 ctx.pc = bus_read_16(ctx.sp);
                 ctx.sp += 2;
             } else {
-                // 8 t cycles
+                ctx.t_cycles = 8;
                 // do nothing
             }
             break;
@@ -1366,10 +1385,10 @@ void execute(uint8_t op) {
         case 0xDA:
             intermediate = fetch_16();
             if (REG_F_C) {
-                // 16 t cycles
+                ctx.t_cycles = 16;
                 ctx.pc = intermediate;
             } else {
-                // 12 t cycles
+                ctx.t_cycles = 12;
                 // do nothing
             }
             break;
@@ -1378,18 +1397,19 @@ void execute(uint8_t op) {
         case 0xDC:
             intermediate = fetch_16();
             if (REG_F_C) {
-                // 24 t cycles
+                ctx.t_cycles = 24;
                 ctx.sp -= 2;
                 bus_write_16(ctx.sp, ctx.pc);
                 ctx.pc = intermediate;
             } else {
-                // 12 t cycles
+                ctx.t_cycles = 12;
                 // do nothing
             }
             break;
 
         // SBC A, u8
         case 0xDE:
+            ctx.t_cycles = 8;
             intermediate = REG_A - REG_F_C - fetch();
             REG_F_SET_H(intermediate > 0x0F);
             REG_F_SET_C(REG_ZZZ(op) + REG_F_C > REG_A);
@@ -1400,7 +1420,7 @@ void execute(uint8_t op) {
 
         // RST 18H
         case 0xDF:
-            // 16 t cycles
+            ctx.t_cycles = 16;
             ctx.sp -= 2;
             bus_write_16(ctx.sp, ctx.pc);
             ctx.pc = 0x18;
@@ -1408,14 +1428,14 @@ void execute(uint8_t op) {
 
         // LD (FF00+u8), A | LD [C], A
         case 0xE0:
-            // 12 t cycles
+            ctx.t_cycles = 12;
             intermediate = 0xFF00 + fetch();
             bus_write(intermediate, REG_A);
             break;
 
         // POP HL
         case 0xE1:
-            // 12 t cycles
+            ctx.t_cycles = 12;
             intermediate = bus_read_16(ctx.sp);
             ctx.sp += 2;
             REG_HL_SET(intermediate);
@@ -1423,21 +1443,21 @@ void execute(uint8_t op) {
 
         // LD (FF00+C), A
         case 0xE2:
-            // 8 t cycles
+            ctx.t_cycles = 8;
             intermediate = 0xFF00 + REG_F_C;
             bus_write(intermediate, REG_A);
             break;
 
         // PUSH HL
         case 0xE5:
-            // 16 t cycles
+            ctx.t_cycles = 16;
             ctx.sp -= 2;
             bus_write_16(ctx.sp, REG_HL);
             break;
 
         // AND A, u8
         case 0xE6:
-            // 8 t cycles
+            ctx.t_cycles = 8;
             REG_A = REG_A & fetch();
             REG_F_SET_Z(REG_A == 0);
             REG_F_SET_N(0);
@@ -1447,7 +1467,7 @@ void execute(uint8_t op) {
 
         // RST 20H
         case 0xE7:
-            // 16 t cycles
+            ctx.t_cycles = 16;
             ctx.sp -= 2;
             bus_write_16(ctx.sp, ctx.pc);
             ctx.pc = 0x20;
@@ -1455,7 +1475,7 @@ void execute(uint8_t op) {
 
         // ADD SP, i8
         case 0xE8:
-            // 16 t cycles
+            ctx.t_cycles = 16;
             intermediate = fetch();
             ctx.sp += (int8_t) intermediate;
             REG_F_SET_Z(0);
@@ -1466,20 +1486,20 @@ void execute(uint8_t op) {
 
         // JP HL
         case 0xE9:
-            // 4 t cycles
+            ctx.t_cycles = 4;
             ctx.pc = REG_HL;
             break;
 
         // LD (u16), A
         case 0xEA:
-            // 16 t cycles
+            ctx.t_cycles = 16;
             intermediate = fetch_16();
             bus_write_16(intermediate, REG_A);
             break;
 
         // XOR A, r8
         case 0xEE:
-            // 8 t cycles
+            ctx.t_cycles = 8;
             REG_A = REG_A ^ fetch();
             REG_F_SET_Z(REG_A == 0);
             REG_F_SET_N(0);
@@ -1489,7 +1509,7 @@ void execute(uint8_t op) {
 
         // RST 28H
         case 0xEF:
-            // 16 t cycles
+            ctx.t_cycles = 16;
             ctx.sp -= 2;
             bus_write_16(ctx.sp, ctx.pc);
             ctx.pc = 0x28;
@@ -1497,14 +1517,14 @@ void execute(uint8_t op) {
 
         // LD A, (FF00+u8) | LD A,[C]
         case 0xF0:
-            // 12 t cycles
+            ctx.t_cycles = 12;
             intermediate = 0xFF00 + fetch();
             REG_A = bus_read(intermediate);
             break;
 
         // POP AF
         case 0xF1:
-            // 12 t cycles
+            ctx.t_cycles = 12;
             intermediate = bus_read_16(ctx.sp);
             ctx.sp += 2;
             REG_F_SET_Z((intermediate >> 15) & 0x01);
@@ -1516,20 +1536,20 @@ void execute(uint8_t op) {
 
         // LD A, (FF00 + C)
         case 0xF2:
-            // 8 t cycles
+            ctx.t_cycles = 8;
             intermediate = 0xFF00 + REG_F_C;
             REG_A = bus_read(intermediate);
             break;
 
         // DI - Disable Interrupts
         case 0xF3:
-            // 4 t cycles
+            ctx.t_cycles = 4;
             bus_write(BUS_IE_REG_ADDR, 0);
             break;
 
         // PUSH AF
         case 0xF5:
-            // 16 t cycles
+            ctx.t_cycles = 16;
             intermediate = 0;
             intermediate += REG_F.zero        << 15
                           | REG_F.subtraction << 14
@@ -1542,7 +1562,7 @@ void execute(uint8_t op) {
 
         // OR A, u8
         case 0xF6:
-            // 8 t cycles
+            ctx.t_cycles = 8;
             REG_A = REG_A | fetch();
             REG_F_SET_Z(REG_A == 0);
             REG_F_SET_N(0);
@@ -1552,7 +1572,7 @@ void execute(uint8_t op) {
 
         // RST 30H
         case 0xF7:
-            // 16 t cycles
+            ctx.t_cycles = 16;
             ctx.sp -= 2;
             bus_write_16(ctx.sp, ctx.pc);
             ctx.pc = 0x30;
@@ -1560,33 +1580,33 @@ void execute(uint8_t op) {
 
         // LD HL, SP+i8
         case 0xF8:
-            // 12 t cycles
+            ctx.t_cycles = 12;
             intermediate = ctx.sp + (int8_t) fetch();
             REG_HL_SET(intermediate);
             break;
 
         // LD SP, HL
         case 0xF9:
-            // 8 t cycles
+            ctx.t_cycles = 8;
             ctx.sp = REG_HL;
             break;
 
         // LD A, (u16)
         case 0xFA:
-            // 16 t cycles
+            ctx.t_cycles = 16;
             intermediate = bus_read(fetch_16());
             REG_A = intermediate;
             break;
 
         // EI - Enable Interrupts
         case 0xFB:
-            // 4 t cycles
+            ctx.t_cycles = 4;
             bus_write(BUS_IE_REG_ADDR, 1);
             break;
 
         // CP A, u8 - Compare register A to immediate 8
         case 0xFE:
-            // 8 t cycles
+            ctx.t_cycles = 8;
             intermediate = REG_A - fetch();
             REG_F_SET_Z(intermediate == 0);
             REG_F_SET_N(1);
@@ -1596,7 +1616,7 @@ void execute(uint8_t op) {
         
         // RST 38H
         case 0xFF:
-            // 16 t cycles
+            ctx.t_cycles = 16;
             ctx.sp -= 2;
             bus_write_16(ctx.sp, ctx.pc);
             ctx.pc = 0x38;
@@ -1627,6 +1647,12 @@ void cpu_init(void) {
 }
 
 void cpu_step(void) {
+    ctx.t_cycles--;
+    if (ctx.t_cycles > 0) {
+        return;
+    }
+    // ctx.t_cycles to be added onto by execute
+
     // print_state();
     uint8_t op = fetch();
     execute(op);

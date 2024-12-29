@@ -18,6 +18,7 @@ typedef struct {
     cpu_flag register_f;
     uint16_t pc;
     uint16_t sp;
+    uint8_t  t_cycles;
 } cpu_context;
 
 void cpu_init(void);

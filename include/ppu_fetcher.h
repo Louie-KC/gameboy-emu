@@ -30,13 +30,13 @@ typedef struct {
     uint8_t     cycles;
     ppu_f_state state;
     uint8_t     row_data[8];
-    uint16_t    tile_id_base_addr;
-    uint8_t     tile_id_index;
+    uint16_t    tile_map_line_addr;
+    uint8_t     tile_map_index_in_line;
     uint8_t     tile_id;
     uint16_t    tile_addr;
     uint8_t     tile_current_line;
 } ppu_fetcher;
 
-
-void ppu_fetcher_set(ppu_fetcher *f, uint16_t id_base_addr, uint8_t scx, uint8_t scy, uint8_t ly);
-void ppu_fetcher_step(ppu_fetcher *f);
+void ppu_feetcher_init(ppu_fetcher *f);
+void ppu_fetcher_set(ppu_fetcher *f, uint16_t map_base_addr, uint8_t scx, uint8_t scy, uint8_t ly);
+void ppu_fetcher_step(ppu_fetcher *f, uint8_t signed_addr_mode);

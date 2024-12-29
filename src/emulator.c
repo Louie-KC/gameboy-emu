@@ -11,7 +11,6 @@
 #define MIN_ARGC 2
 
 int emulator_run(int argc, char *argv[]) {
-    uint32_t loop_count = 0;
 
     if (argc < MIN_ARGC) {
         printf("Incorrect args\n");
@@ -32,18 +31,14 @@ int emulator_run(int argc, char *argv[]) {
     ppu_init();
     emu_run = 1;
 
-    while (emu_run) {
-        loop_count++;
-        
+    while (emu_run) {        
         cpu_step();
         ppu_step();
         window_step();
         
-        // Temp: update window every once in a while as
-        //       copying to the SDL texture is expensive.
-        if (loop_count % 2000 == 0) {
-            ppu_update_view();
+        if (ppu_view_updated) {
             window_draw();
+            ppu_view_updated = 0;
         }
     }
 

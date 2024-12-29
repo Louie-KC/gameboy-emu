@@ -30,6 +30,8 @@ void ppu_init(void) {
     bus_write(LCD_SCX_ADDR,  0x00);
     bus_write(LCD_LY_ADDR,   0x91);
     bus_write(LCD_LYC_ADDR,  0x00);
+
+    ppu_feetcher_init(&fetcher);
 }
 
 void ppu_step(void) {
@@ -46,15 +48,20 @@ void ppu_step(void) {
             // TODO
 
             if (ctx.cycles == 40) {
-                uint16_t addr = 0x9800;
+                uint16_t id_index_addr;
+                if (ctx.bg_tile) {
+                    id_index_addr = 0x9C00;
+                } else {
+                    id_index_addr = 0x9800;
+                }
                 ctx.n_line_pixels_drawn = 0;
-                ppu_fetcher_set(&fetcher, addr, ctx.SCX, ctx.SCY, ctx.LY);
+                ppu_fetcher_set(&fetcher, id_index_addr, ctx.SCX, ctx.SCY, ctx.LY);
                 ctx.state = DRAW_LINE;
             }
             break;
         
         case DRAW_LINE:
-            ppu_fetcher_step(&fetcher);
+            ppu_fetcher_step(&fetcher, ctx.bg_tile);
             // there must be at least 8 pixels in the queue to draw
             if (queue_count(&fetcher.queue) <= 8) {
                 break;
@@ -80,7 +87,10 @@ void ppu_step(void) {
                 ctx.cycles = 0;
                 ctx.LY++;
                 if (ctx.LY == 144) {
+                    // Frame completed, raise flag for SDL to draw
                     ctx.state = V_BLANK;
+                    ppu_update_view();
+                    ppu_view_updated = 1;
                 } else {
                     ctx.state = OAM_SCAN;
                 }

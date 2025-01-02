@@ -37,10 +37,10 @@ typedef struct {
     uint8_t   n_line_pixels_drawn;
 } ppu_context;
 
-uint8_t ppu_view[GB_SCREEN_RES_X * GB_SCREEN_RES_Y * 3];
+extern uint8_t ppu_view[GB_SCREEN_RES_X * GB_SCREEN_RES_Y * 3];
 
 // Indicate that SDL should draw the current PPU view
-uint8_t ppu_view_updated;
+extern uint8_t ppu_view_updated;
 
 void ppu_init(void);
 void ppu_step(void);

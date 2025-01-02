@@ -15,6 +15,9 @@ static ppu_context ctx;
 
 static ppu_fetcher fetcher;
 
+uint8_t ppu_view[GB_SCREEN_RES_X * GB_SCREEN_RES_Y * 3];
+uint8_t ppu_view_updated;
+
 void read_reg_to_ctx(void);
 void write_reg_from_ctx(void);
 

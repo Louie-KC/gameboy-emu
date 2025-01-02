@@ -1,5 +1,4 @@
 #include "emulator.h"
-#include "bus.h"
 #include "cartridge.h"
 #include "cpu.h"
 #include "common.h"
@@ -9,6 +8,8 @@
 #define USAGE "rom_path"
 
 #define MIN_ARGC 2
+
+uint8_t emu_run;
 
 int emulator_run(int argc, char *argv[]) {
 
